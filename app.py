@@ -12,14 +12,17 @@ openai.api_key = st.secrets["openai_key"]
 ##App framework
 st.image('logo_nbg.png', width = 100)
 # st.title('Code:robot_face:')
-st.markdown("<h1 style='font-size: 40px;'>Code Migration Bot</h1>", unsafe_allow_html=True)
-col1, col2, side = st.columns([1,1,8])
-with col1:
-    summarize_flag = st.checkbox('Summarize')
+st.markdown("<h1 style='font-size: 30px;'>Code Migration Bot</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='font-size: 5px;'></h1>", unsafe_allow_html=True)
+col1, col2, col3, side = st.columns([1,1,1,6])
 with col2:
+    summarize_flag = st.checkbox('Summarize')
+with col1:
     debug_flag = st.checkbox('Debug')
+with col3:
+    convert_flag = st.checkbox('Convert')
     
-prompt = st.text_area('Please enter the SAS code below', height = 300)
+prompt = st.text_area('Please enter the SAS code below', height = 200)
 exl_model='gpt-3.5-turbo'
 
 
@@ -65,7 +68,7 @@ run;
 
 In the corrected code, the directory path in both the libname statement and the datafile option of proc import now use forward slashes (/) instead of backslashes (\) for proper file path formatting.'''
 
-    
+
     
     sample_input2 = '''Identify syntax errors in the below the SAS code:
                         *Content of data;
@@ -276,10 +279,35 @@ run;'''
     return response["choices"][0]["message"]["content"]
 
 
-
 ##Model-2 - Code Summarization
 def summary_model(user_prompt):
-    bot_instructions = "You are a code summarization assistant. You get SAS code as input and you briefly explain what is being done in the code."
+    bot_instructions = """You are a code summarization assistant. You get SAS code as input. You have to perform below tasks:
+    1. Identify syntax error and write the correct SAS code. Skip this step if there is no syntax errors.
+    2. Briefly explain what code is doing.
+    
+    Below are two examples:
+    Example 1:
+    User:
+    procc contents 
+    data = logit.Default_On_Payment;
+    run;
+    AI: There is a syntax error in the provided SAS code. The correct procedure name is "proc" instead of "procc". Here is the corrected code:
+    
+    *Content of data;
+    proc contents 
+    data = logit.Default_On_Payment;
+    run;
+
+    Summary: The code is using the PROC CONTENTS statement to obtain information about the variables in the dataset named "logit.Default_On_Payment".
+
+
+    Example 2:
+    User:
+    proc contents 
+    data = logit.Default_On_Payment;
+    run;
+    AI: The code is using the PROC CONTENTS statement to obtain information about the variables in the dataset named "logit.Default_On_Payment".
+    """
     response = openai.ChatCompletion.create(
         model=exl_model,
         messages=[
@@ -293,7 +321,7 @@ def summary_model(user_prompt):
 
 ##Model-3 - Code Conversion
 def conversion_model(user_prompt):
-    bot_instructions = "You are a code assistant. You get SAS code as an input and you write its equivalent python code. Try to ensure that Python code output data should match SAS code output."
+    bot_instructions = "You are a code assistant. You get SAS code as an input and you write its equivalent python code which follows python language syntax. Try to ensure that Python code output data should match SAS code output."
     
     sample_input1_cc = '''
     %macro mBivariate(var);
@@ -345,50 +373,87 @@ def conversion_model(user_prompt):
     )
     return response["choices"][0]["message"]["content"]
 
-##Show stuff to the sceen if there is a prompt
-if st.button('Run'):
 
-    if debug_flag:
-        
-        progress_text = "Debugging, Please wait."
-        my_bar = st.progress(0, text=progress_text)
-        for percent_complete in range(100):
-            time.sleep(2)
-            my_bar.progress(percent_complete + 1, text=progress_text)
-            response_syntax =  syntax_model(prompt)
-            if type(response_syntax) == type('Check'):
-                my_bar.progress(100)
-                break
+##Defining Model functions:
+def debug_function():
+    progress_text = "Debugging, Please wait."
+    my_bar = st.progress(0, text=progress_text)
+    for percent_complete in range(100):
+        time.sleep(1)
+        my_bar.progress(percent_complete + 1, text=progress_text)
+        response_syntax =  syntax_model(prompt)
+        if type(response_syntax) == type('Check'):
+            my_bar.progress(100)
+            break
 
-        st.markdown('\n:blue[Code debugging]')
-        st.write(response_syntax)
+    st.markdown('\n:blue[Code debugging]')
+    st.write(response_syntax)
 
-        
-    if summarize_flag:
 
-        progress_text = "Summarizing, Please wait."
-        my_bar = st.progress(0, text=progress_text)
-        for percent_complete in range(100):
-            time.sleep(2)
-            my_bar.progress(percent_complete + 1, text=progress_text)
-            response_summary = summary_model(prompt)
-            if type(response_summary) == type('Check'):
-                my_bar.progress(100)
-                break
+def summary_function():    
+    progress_text = "Summarizing, Please wait."
+    my_bar = st.progress(0, text=progress_text)
+    for percent_complete in range(100):
+        time.sleep(1)
+        my_bar.progress(percent_complete + 1, text=progress_text)
+        response_summary = summary_model(prompt)
+        if type(response_summary) == type('Check'):
+            my_bar.progress(100)
+            break
 
-        st.markdown('\n:blue[Code Summarization]')
-        st.write(response_summary)
+    st.markdown('\n:blue[Code Summarization]')
+    st.write(response_summary)
 
+
+def conversion_function():
     progress_text = "Converting, Please wait."
     my_bar = st.progress(0, text=progress_text)
     for percent_complete in range(100):
-        time.sleep(2)
+        time.sleep(1)
         my_bar.progress(percent_complete + 1, text=progress_text)
         response_conversion = conversion_model(prompt)
         if type(response_conversion) == type('Check'):
             my_bar.progress(100)
             break
 
-    st.markdown('\n:blue[Code Conversion]')
+    st.markdown('\n:blue[Python Code]')
     st.code(response_conversion, language = 'python')
+
+##Show stuff to the sceen if there is a prompt
+if st.button('Submit'):
+
+    if prompt.strip() == '' or prompt is None:
+        st.text("Please enter your SAS code.")
+
+    elif debug_flag is not True and summarize_flag is not True and convert_flag is not True:
+        st.text("Please select an option (Debug, Summarize or Convert) to proceed.")
+
+    else:
+
+        if debug_flag and summarize_flag and convert_flag:
+            debug_function()
+            summary_function()
+            conversion_function()
+        
+        elif debug_flag and summarize_flag:
+            debug_function()
+            summary_function()
+            
+        elif debug_flag and convert_flag:
+            debug_function()
+            conversion_function()
+
+        elif summarize_flag and convert_flag:
+            summary_function()
+            conversion_function()
+        
+        elif debug_flag:
+            debug_function()
+        
+        elif summarize_flag:
+            summary_function()
+        
+        else:
+            conversion_function()
+
     
