@@ -23,7 +23,8 @@ with col3:
     convert_flag = st.checkbox('Convert')
     
 prompt = st.text_area('Please enter the SAS code below', height = 200)
-exl_model='gpt-3.5-turbo'
+# exl_model='gpt-3.5-turbo'
+exl_model='gpt-3.5-turbo-16k'
 
 
 ##Model-1 - Checking for Syntax Errors
@@ -321,9 +322,10 @@ def summary_model(user_prompt):
 
 ##Model-3 - Code Conversion
 def conversion_model(user_prompt):
-    bot_instructions = "You are a code assistant. You get SAS code as an input and you write its equivalent python code which follows python language syntax. Try to ensure that Python code output data should match SAS code output."
+    bot_instructions = """You are a python code assistant. You get SAS code as an input and you write its equivalent python code which strictly follows python coding language syntax. Below are two examples:
     
-    sample_input1_cc = '''
+    Example 1:
+    User:
     %macro mBivariate(var);
     proc sql;
     Create table &var._tab as 
@@ -339,8 +341,8 @@ def conversion_model(user_prompt):
     run;
 
     proc print data = &var._tab; run;
-    %mend mBivariate;'''
-    sample_output1_cc = '''
+    %mend mBivariate;
+    AI:
     import pandas as pd
 
     def mBivariate(var):
@@ -359,14 +361,76 @@ def conversion_model(user_prompt):
 
     # Calling the mBivariate macro
     mBivariate(var)
-    '''
+
+    Example 2:
+    User:
+    data logit.Default_On_Payment_v1;
+    set logit.Default_On_Payment;
+
+	/*Status_Checking_Acc*/	
+	if Status_Checking_Acc eq 'A11' then Status_Checking_Acc_dummy_1 = 1; 
+		else Status_Checking_Acc_dummy_1 = 0;
+	if Status_Checking_Acc eq 'A12' then Status_Checking_Acc_dummy_2 = 1; 
+		else Status_Checking_Acc_dummy_2 = 0;
+	if Status_Checking_Acc eq 'A13' then Status_Checking_Acc_dummy_3 = 1; 
+		else Status_Checking_Acc_dummy_3 = 0;
+
+    run;
+
+    AI:
+    import pandas as pd
+
+    logit_Default_On_Payment_v1 = pd.DataFrame(logit_Default_On_Payment)
+    logit_Default_On_Payment_v1['Status_Checking_Acc_dummy_1'] = (logit_Default_On_Payment['Status_Checking_Acc'] == 'A11').astype(int)
+    logit_Default_On_Payment_v1['Status_Checking_Acc_dummy_2'] = (logit_Default_On_Payment['Status_Checking_Acc'] == 'A12').astype(int)
+    logit_Default_On_Payment_v1['Status_Checking_Acc_dummy_3'] = (logit_Default_On_Payment['Status_Checking_Acc'] == 'A13').astype(int)
+
+    """
+    
+    # sample_input1_cc = '''
+    # %macro mBivariate(var);
+    # proc sql;
+    # Create table &var._tab as 
+    # select &var, count(*) as freq,
+    # sum(Default_On_Payment) as Default_On_Payment 
+    # from logit.Default_On_Payment
+    # group by &var;
+    # quit;
+
+    # data &var._tab;
+    # set &var._tab;
+    #     Default_Rate = Default_On_Payment/freq;
+    # run;
+
+    # proc print data = &var._tab; run;
+    # %mend mBivariate;'''
+    # sample_output1_cc = '''
+    # import pandas as pd
+
+    # def mBivariate(var):
+    # # Creating &var._tab table
+    # data = pd.DataFrame({
+    #     var: logit.Default_On_Payment[var],
+    #     'freq': logit.Default_On_Payment.groupby(var).size(),
+    #     'Default_On_Payment': logit.Default_On_Payment.groupby(var).sum()
+    # }).reset_index()
+
+    # # Adding Default_Rate column
+    # data['Default_Rate'] = data['Default_On_Payment'] / data['freq']
+
+    # # Printing the &var._tab table
+    # print(data)
+
+    # # Calling the mBivariate macro
+    # mBivariate(var)
+    # '''
 
     response = openai.ChatCompletion.create(
         model=exl_model,
         messages=[
             {"role": "system", "content": bot_instructions},
-            {"role": "system", "name":"example_user", "content": sample_input1_cc},
-            {"role": "system", "name": "example_assistant", "content": sample_output1_cc},
+            # {"role": "system", "name":"example_user", "content": sample_input1_cc},
+            # {"role": "system", "name": "example_assistant", "content": sample_output1_cc},
             {"role": "user", "content": user_prompt},
         ],
         temperature=0,
